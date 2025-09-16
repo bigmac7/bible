@@ -1,4 +1,4 @@
-use crate::db::{conn, db_exists};
+use crate::db::conn;
 use std::error::Error;
 
 pub fn get_verse(book: &str, chapter: &str, verse: &str) -> Result<Vec<String>, Box<dyn Error>> {
