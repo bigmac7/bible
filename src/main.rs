@@ -1,6 +1,5 @@
 mod db;
 mod getter;
-mod structs;
 
 use getter::{get_available_translations, get_verse};
 use std::error::Error;

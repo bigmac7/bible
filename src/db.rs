@@ -5,6 +5,6 @@ pub fn db_exists(db_path: &str) -> bool {
     Path::new(db_path).exists()
 }
 
-pub fn conn(db_path: &str) -> Result<Connection> {
-    Connection::open(db_path)
+pub fn conn() -> Result<Connection> {
+    Connection::open("bible.db")
 }
