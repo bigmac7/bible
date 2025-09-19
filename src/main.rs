@@ -1,10 +1,11 @@
 mod db;
+mod downloader;
 mod getter;
 
 use clap::{Parser, Subcommand};
+use downloader::add_translations;
 use getter::{get_available_translations, get_verse};
 use std::error::Error;
-use std::process::Command;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None, arg_required_else_help = true)]
@@ -27,6 +28,7 @@ enum Commands {
     },
 
     /// Add one or more new translations by downloading them
+    #[command(long_about = include_str!(concat!(env!("OUT_DIR"), "/remote_translations.txt")))]
     Add {
         /// A list of translation abbreviations to add (e.g., ASV BBE)
         #[arg(required = true)]
@@ -54,20 +56,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         }
         Commands::Add { translations } => {
-            println!(
-                "Attempting to add translations: {}...",
-                translations.join(", ")
-            );
-            let mut cmd = Command::new("./get_bible_sqlite_db.sh")
-                .args(translations)
-                .spawn()?;
-
-            let status = cmd.wait()?;
-            if status.success() {
-                println!("Script finished successfully.");
-            } else {
-                eprintln!("Script failed with status: {}", status);
-            }
+            add_translations(translations)?;
         }
         Commands::List => {
             println!("Available translations:");

@@ -1,10 +1,13 @@
 [package]
 name = "bible"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
-clap = { version = "4.5.47", features = ["derive"] }
-rusqlite = "0.37.0"
+clap = { version = "4.5.4", features = ["derive"] }
+rusqlite = { version = "0.31.0", features = ["bundled"] }
+dirs = "5.0.1"
+reqwest = { version = "0.12.4", features = ["blocking"] }
 
 [build-dependencies]
+reqwest = { version = "0.12.4", features = ["blocking"] }
