@@ -1,5 +1,5 @@
 use crate::db;
-use rusqlite::{Connection, Result as RusqliteResult, Statement};
+use rusqlite::{Connection, Result as RusqliteResult};
 use std::error::Error;
 use std::fs::{self, File};
 use std::io;

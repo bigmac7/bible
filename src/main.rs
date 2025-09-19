@@ -4,7 +4,7 @@ mod getter;
 
 use clap::{Parser, Subcommand};
 use downloader::add_translations;
-use getter::{get_available_translations, get_verse};
+use getter::{get_available_translations, get_chapter, get_verse};
 use std::error::Error;
 
 #[derive(Parser)]
@@ -20,7 +20,7 @@ enum Commands {
     Get {
         book: String,
         chapter: i32,
-        verse: i32,
+        verse: Option<i32>,
 
         /// The translation to use (e.g., KJV, ASV)
         #[arg(short, long, default_value = "KJV")]
@@ -49,10 +49,18 @@ fn main() -> Result<(), Box<dyn Error>> {
             verse,
             translation,
         } => {
-            let verses = get_verse(translation, book, *chapter, *verse)?;
-            println!("{} {}:{} ({})", book, chapter, verse, translation);
-            for v in verses {
-                println!("{}", v);
+            if let Some(verse) = verse {
+                let verses = get_verse(translation, book, *chapter, *verse)?;
+                println!("{} {}:{} ({})", book, chapter, verse, translation);
+                for v in verses {
+                    println!("{}", v);
+                }
+            } else {
+                let verses = get_chapter(translation, book, *chapter)?;
+                println!("{} {} ({})", book, chapter, translation);
+                for v in verses {
+                    println!("{}", v);
+                }
             }
         }
         Commands::Add { translations } => {
