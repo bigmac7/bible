@@ -1,6 +1,6 @@
 use crate::db;
+use crate::errors::AppError;
 use rusqlite::{Connection, Result as RusqliteResult};
-use std::error::Error;
 use std::fs::{self, File};
 use std::io;
 use std::path::Path;
@@ -8,7 +8,7 @@ use std::path::Path;
 const BASE_URL: &str =
     "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/";
 
-pub fn add_translations(translations: &Vec<String>) -> Result<(), Box<dyn Error>> {
+pub fn add_translations(translations: &Vec<String>) -> Result<(), AppError> {
     if translations.is_empty() {
         return Ok(()); // Nothing to do
     }
@@ -16,7 +16,6 @@ pub fn add_translations(translations: &Vec<String>) -> Result<(), Box<dyn Error>
     let db_path = db::get_db_path()?;
     let mut translations_to_process = translations.clone();
 
-    // If bible.db doesn't exist, create it from the first translation
     if !db_path.exists() {
         println!(
             "ℹ️  '{}' not found. Creating it from: {}",
@@ -30,7 +29,6 @@ pub fn add_translations(translations: &Vec<String>) -> Result<(), Box<dyn Error>
         translations_to_process.remove(0);
     }
 
-    // Merge the rest of the translations
     for translation in &translations_to_process {
         if translation.to_lowercase() == "bible.db" {
             continue;
@@ -48,13 +46,10 @@ pub fn add_translations(translations: &Vec<String>) -> Result<(), Box<dyn Error>
     Ok(())
 }
 
-fn download_translation(translation: &str) -> Result<std::path::PathBuf, Box<dyn Error>> {
+fn download_translation(translation: &str) -> Result<std::path::PathBuf, AppError> {
     let url = format!("{}{}.db", BASE_URL, translation);
-    let response = reqwest::blocking::get(&url)?;
-
-    if !response.status().is_success() {
-        return Err(format!("Failed to download {}: HTTP {}", url, response.status()).into());
-    }
+    println!("Downloading {}...", url);
+    let response = reqwest::blocking::get(&url)?.error_for_status()?;
 
     let temp_path = std::env::temp_dir().join(format!("{}.db", translation));
     let mut dest = File::create(&temp_path)?;
@@ -63,11 +58,14 @@ fn download_translation(translation: &str) -> Result<std::path::PathBuf, Box<dyn
     Ok(temp_path)
 }
 
-fn merge_databases(main_db_path: &Path, other_db_path: &Path) -> Result<(), Box<dyn Error>> {
+fn merge_databases(main_db_path: &Path, other_db_path: &Path) -> Result<(), AppError> {
     let mut main_conn = Connection::open(main_db_path)?;
-    let other_db_path_str = other_db_path
-        .to_str()
-        .ok_or("Invalid temporary database path")?;
+    let other_db_path_str = other_db_path.to_str().ok_or_else(|| {
+        AppError::Io(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "Invalid temporary database path",
+        ))
+    })?;
 
     main_conn.execute("ATTACH DATABASE ?1 AS toMerge;", [other_db_path_str])?;
 

@@ -1,11 +1,12 @@
 mod db;
 mod downloader;
+mod errors;
 mod getter;
 
 use clap::{Parser, Subcommand};
 use downloader::add_translations;
+use errors::AppError;
 use getter::{get_available_translations, get_chapter, get_verse};
-use std::error::Error;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None, arg_required_else_help = true)]
@@ -39,7 +40,14 @@ enum Commands {
     List,
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() {
+    if let Err(e) = run() {
+        eprintln!("Error: {}", e);
+        std::process::exit(1);
+    }
+}
+
+fn run() -> Result<(), AppError> {
     let cli = Cli::parse();
 
     match &cli.command {
