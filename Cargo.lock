@@ -114,6 +114,8 @@ dependencies = [
  "dirs",
  "reqwest",
  "rusqlite",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

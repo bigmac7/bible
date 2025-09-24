@@ -1,15 +1,22 @@
+mod config;
 mod db;
 mod downloader;
 mod errors;
 mod getter;
 
 use clap::{Parser, Subcommand};
+use config::get_default_translation;
 use downloader::add_translations;
 use errors::AppError;
 use getter::{get_available_translations, get_chapter, get_verse};
 
 #[derive(Parser)]
-#[command(version, about, long_about = None, arg_required_else_help = true)]
+#[command(
+    version,
+    about,
+    long_about = "A simple CLI for downloading and reading the Bible.\n\nENVIRONMENT:\n    BIBLE_DEFAULT_TRANSLATION    Sets the default translation to be installed on first run. Defaults to \"KJV\".",
+    arg_required_else_help = true
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -24,8 +31,8 @@ enum Commands {
         verse: Option<i32>,
 
         /// The translation to use (e.g., KJV, ASV)
-        #[arg(short, long, default_value = "KJV")]
-        translation: String,
+        #[arg(short, long)]
+        translation: Option<String>,
     },
 
     /// Add one or more new translations by downloading them
@@ -34,6 +41,13 @@ enum Commands {
         /// A list of translation abbreviations to add (e.g., ASV BBE)
         #[arg(required = true)]
         translations: Vec<String>,
+    },
+
+    /// Configure default settings
+    Config {
+        /// Set the default translation
+        #[arg(long)]
+        set_default_translation: Option<String>,
     },
 
     /// List all available translations in the database
@@ -48,6 +62,20 @@ fn main() {
 }
 
 fn run() -> Result<(), AppError> {
+    let db_path = db::get_db_path()?;
+    if !db_path.exists() {
+        let default_translation = get_default_translation()?;
+        println!(
+            "No translations found. Downloading and installing default translation ({})...",
+            default_translation
+        );
+        add_translations(&vec![default_translation.clone()])?;
+        let mut config = config::load_config()?;
+        config.default_translation = Some(default_translation);
+        config::save_config(&config)?;
+        println!("Default translation installed.");
+    }
+
     let cli = Cli::parse();
 
     match &cli.command {
@@ -57,15 +85,20 @@ fn run() -> Result<(), AppError> {
             verse,
             translation,
         } => {
+            let translation_to_use = match translation {
+                Some(t) => t.clone(),
+                None => get_default_translation()?,
+            };
+
             if let Some(verse) = verse {
-                let verses = get_verse(translation, book, *chapter, *verse)?;
-                println!("{} {}:{} ({})", book, chapter, verse, translation);
+                let verses = get_verse(&translation_to_use, book, *chapter, *verse)?;
+                println!("{} {}:{} ({})", book, chapter, verse, translation_to_use);
                 for v in verses {
                     println!("{}", v);
                 }
             } else {
-                let verses = get_chapter(translation, book, *chapter)?;
-                println!("{} {} ({})", book, chapter, translation);
+                let verses = get_chapter(&translation_to_use, book, *chapter)?;
+                println!("{} {} ({})", book, chapter, translation_to_use);
                 for v in verses {
                     println!("{}", v);
                 }
@@ -73,6 +106,25 @@ fn run() -> Result<(), AppError> {
         }
         Commands::Add { translations } => {
             add_translations(translations)?;
+            if let Some(new_default) = translations.last() {
+                let mut config = config::load_config()?;
+                config.default_translation = Some(new_default.clone());
+                config::save_config(&config)?;
+                println!("Set '{}' as default translation.", new_default);
+            }
+        }
+        Commands::Config {
+            set_default_translation,
+        } => {
+            let mut config = config::load_config()?;
+            if let Some(new_default) = set_default_translation {
+                config.default_translation = Some(new_default.clone());
+                config::save_config(&config)?;
+                println!("Set '{}' as default translation.", new_default);
+            } else {
+                let default = get_default_translation()?;
+                println!("Current default translation: {}", default);
+            }
         }
         Commands::List => {
             println!("Available translations:");

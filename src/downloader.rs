@@ -1,5 +1,6 @@
 use crate::db;
 use crate::errors::AppError;
+use crate::getter::get_available_translations;
 use rusqlite::{Connection, Result as RusqliteResult};
 use std::fs::{self, File};
 use std::io;
@@ -14,22 +15,50 @@ pub fn add_translations(translations: &Vec<String>) -> Result<(), AppError> {
     }
 
     let db_path = db::get_db_path()?;
-    let mut translations_to_process = translations.clone();
+    let existing_translations = if db_path.exists() {
+        get_available_translations()?
+    } else {
+        Vec::new()
+    };
 
+    let mut translations_to_process = Vec::new();
+    for t in translations {
+        if existing_translations
+            .iter()
+            .any(|et| et.eq_ignore_ascii_case(t))
+        {
+            println!("ℹ️  Translation '{}' already exists. Skipping.", t);
+        } else {
+            translations_to_process.push(t.clone());
+        }
+    }
+
+    if translations_to_process.is_empty() {
+        println!("🎉  All requested translations are already in the database.");
+        return Ok(());
+    }
+
+    let mut first_translation_processed = false;
     if !db_path.exists() {
         println!(
             "ℹ️  '{}' not found. Creating it from: {}",
             db_path.display(),
-            &translations[0]
+            &translations_to_process[0]
         );
-        let first_translation = &translations[0];
+        let first_translation = &translations_to_process[0];
         let temp_path = download_translation(first_translation)?;
         fs::rename(&temp_path, &db_path)?;
         fs::remove_file(&temp_path).unwrap_or_default(); // Clean up temp file if rename fails across devices
-        translations_to_process.remove(0);
+        first_translation_processed = true;
     }
 
-    for translation in &translations_to_process {
+    let translations_to_merge: Vec<&String> = if first_translation_processed {
+        translations_to_process.iter().skip(1).collect()
+    } else {
+        translations_to_process.iter().collect()
+    };
+
+    for translation in translations_to_merge {
         if translation.to_lowercase() == "bible.db" {
             continue;
         } // Just in case
