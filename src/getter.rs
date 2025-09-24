@@ -5,7 +5,7 @@ use rusqlite::params;
 fn get_book_id(translation: &str, book: &str) -> Result<i32, AppError> {
     let con = conn()?;
     let table_name = format!("{}_books", translation.to_uppercase());
-    let sql = format!("SELECT id FROM {} WHERE name = ?", table_name);
+    let sql = format!("SELECT id FROM {} WHERE LOWER(name) = LOWER(?)", table_name);
     let mut stmt = con.prepare(&sql)?;
     let book_id_result = stmt.query_row([book], |row| row.get(0));
     match book_id_result {

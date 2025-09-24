@@ -6,6 +6,8 @@ use std::path::PathBuf;
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct Config {
+    #[serde(rename = "TRANSLATION")]
+    pub translation: Option<String>,
     pub default_translation: Option<String>,
 }
 
@@ -40,6 +42,7 @@ pub fn get_default_translation() -> Result<String, AppError> {
     let config = load_config()?;
 
     let default = default_from_env
+        .or(config.translation)
         .or(config.default_translation)
         .unwrap_or_else(|| "KJV".to_string());
     Ok(default)

@@ -46,8 +46,7 @@ enum Commands {
     /// Configure default settings
     Config {
         /// Set the default translation
-        #[arg(long)]
-        set_default_translation: Option<String>,
+        translation: Option<String>,
     },
 
     /// List all available translations in the database
@@ -62,16 +61,17 @@ fn main() {
 }
 
 fn run() -> Result<(), AppError> {
-    let db_path = db::get_db_path()?;
-    if !db_path.exists() {
-        let default_translation = get_default_translation()?;
+    let mut config = config::load_config()?;
+    let default_translation = get_default_translation()?;
+    let available_translations = get_available_translations().unwrap_or_default();
+
+    if !available_translations.contains(&default_translation) {
         println!(
-            "No translations found. Downloading and installing default translation ({})...",
+            "Default translation ({}) not found. Downloading and installing...",
             default_translation
         );
         add_translations(&vec![default_translation.clone()])?;
-        let mut config = config::load_config()?;
-        config.default_translation = Some(default_translation);
+        config.default_translation = Some(default_translation.clone());
         config::save_config(&config)?;
         println!("Default translation installed.");
     }
@@ -113,11 +113,9 @@ fn run() -> Result<(), AppError> {
                 println!("Set '{}' as default translation.", new_default);
             }
         }
-        Commands::Config {
-            set_default_translation,
-        } => {
+        Commands::Config { translation } => {
             let mut config = config::load_config()?;
-            if let Some(new_default) = set_default_translation {
+            if let Some(new_default) = translation {
                 config.default_translation = Some(new_default.clone());
                 config::save_config(&config)?;
                 println!("Set '{}' as default translation.", new_default);
