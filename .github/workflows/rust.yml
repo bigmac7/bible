@@ -21,4 +21,4 @@ jobs:
     - name: Run tests
       run: cargo test --verbose
     - name: Verify run
-      run: cargo run genesis 1 1
+      run: cargo run bible genesis 1 1
