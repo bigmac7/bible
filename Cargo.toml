@@ -2,7 +2,12 @@
 name = "bible"
 version = "0.1.0"
 edition = "2021"
-
+description = "A command-line tool for reading translations of the Bible."
+repository = "https://github.com/bigmac7/bible"
+readme = "README.md"
+keywords = ["bible", "command-line", "tool", "cli"]
+license = "MIT"
+categories = ["command-line-utilities"]
 [dependencies]
 clap = { version = "4.5.4", features = ["derive"] }
 rusqlite = { version = "0.31.0", features = ["bundled"] }
