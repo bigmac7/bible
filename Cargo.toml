@@ -8,6 +8,10 @@ readme = "README.md"
 keywords = ["bible", "command-line", "tool", "cli"]
 license = "MIT"
 categories = ["command-line-utilities"]
+exclude = [
+    ".github",
+    ".gitignore"
+]
 [dependencies]
 clap = { version = "4.5.4", features = ["derive"] }
 rusqlite = { version = "0.31.0", features = ["bundled"] }
@@ -15,6 +19,7 @@ dirs = "5.0.1"
 reqwest = { version = "0.12.4", features = ["blocking"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+
 
 [build-dependencies]
 reqwest = { version = "0.12.4", features = ["blocking"] }
