@@ -2,6 +2,8 @@
 
 A simple command-line interface for downloading and reading the Bible.
 
+This is simply a project for me to learn Rust, however if useful, let me know and I'll carry on maintaining it
+
 ## Features
 
 *   Download and read the Bible from the command line.
