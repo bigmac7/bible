@@ -92,15 +92,13 @@ fn run() -> Result<(), AppError> {
 
             if let Some(verse) = verse {
                 let verses = get_verse(&translation_to_use, book, *chapter, *verse)?;
-                println!("{} {}:{} ({})", book, chapter, verse, translation_to_use);
                 for v in verses {
-                    println!("{}", v);
+                    println!("{} ({})", v, translation_to_use);
                 }
             } else {
                 let verses = get_chapter(&translation_to_use, book, *chapter)?;
-                println!("{} {} ({})", book, chapter, translation_to_use);
                 for v in verses {
-                    println!("{}", v);
+                    println!("{} ({})", v, translation_to_use);
                 }
             }
         }
