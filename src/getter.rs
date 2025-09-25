@@ -1,24 +1,28 @@
 use crate::db::conn;
+use crate::errors::AppError;
 use rusqlite::params;
-use std::error::Error;
 
-// Updated to take translation
-fn get_book_id(translation: &str, book: &str) -> Result<i32, Box<dyn Error>> {
+fn get_book_id(translation: &str, book: &str) -> Result<i32, AppError> {
     let con = conn()?;
     let table_name = format!("{}_books", translation.to_uppercase());
-    let sql = format!("SELECT id FROM {} WHERE name = ?", table_name);
+    let sql = format!("SELECT id FROM {} WHERE LOWER(name) = LOWER(?)", table_name);
     let mut stmt = con.prepare(&sql)?;
-    let book_id = stmt.query_row([book], |row| row.get(0))?;
-    Ok(book_id)
+    let book_id_result = stmt.query_row([book], |row| row.get(0));
+    match book_id_result {
+        Ok(id) => Ok(id),
+        Err(rusqlite::Error::QueryReturnedNoRows) => {
+            Err(AppError::NotFound(format!("book '{}'", book)))
+        }
+        Err(e) => Err(e.into()),
+    }
 }
 
-// Updated to take translation
 pub fn get_verse(
     translation: &str,
     book: &str,
     chapter: i32,
     verse: i32,
-) -> Result<Vec<String>, Box<dyn Error>> {
+) -> Result<Vec<String>, AppError> {
     let con = conn()?;
     let book_id = get_book_id(translation, book)?;
     let table_name = format!("{}_verses", translation.to_uppercase());
@@ -35,8 +39,7 @@ pub fn get_verse(
     Ok(data)
 }
 
-// Rewritten to be more robust
-pub fn get_available_translations() -> Result<Vec<String>, Box<dyn Error>> {
+pub fn get_available_translations() -> Result<Vec<String>, AppError> {
     let con = conn()?;
     let mut stmt =
         con.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%_verses'")?;
@@ -51,12 +54,7 @@ pub fn get_available_translations() -> Result<Vec<String>, Box<dyn Error>> {
     Ok(data)
 }
 
-// Updated to take translation
-pub fn get_chapter(
-    translation: &str,
-    book: &str,
-    chapter: i32,
-) -> Result<Vec<String>, Box<dyn Error>> {
+pub fn get_chapter(translation: &str, book: &str, chapter: i32) -> Result<Vec<String>, AppError> {
     let con = conn()?;
     let book_id = get_book_id(translation, book)?;
     let table_name = format!("{}_verses", translation.to_uppercase());

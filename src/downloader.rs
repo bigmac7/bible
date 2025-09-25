@@ -1,6 +1,7 @@
 use crate::db;
+use crate::errors::AppError;
+use crate::getter::get_available_translations;
 use rusqlite::{Connection, Result as RusqliteResult};
-use std::error::Error;
 use std::fs::{self, File};
 use std::io;
 use std::path::Path;
@@ -8,30 +9,56 @@ use std::path::Path;
 const BASE_URL: &str =
     "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/";
 
-pub fn add_translations(translations: &Vec<String>) -> Result<(), Box<dyn Error>> {
+pub fn add_translations(translations: &Vec<String>) -> Result<(), AppError> {
     if translations.is_empty() {
         return Ok(()); // Nothing to do
     }
 
     let db_path = db::get_db_path()?;
-    let mut translations_to_process = translations.clone();
+    let existing_translations = if db_path.exists() {
+        get_available_translations()?
+    } else {
+        Vec::new()
+    };
 
-    // If bible.db doesn't exist, create it from the first translation
+    let mut translations_to_process = Vec::new();
+    for t in translations {
+        if existing_translations
+            .iter()
+            .any(|et| et.eq_ignore_ascii_case(t))
+        {
+            println!("ℹ️  Translation '{}' already exists. Skipping.", t);
+        } else {
+            translations_to_process.push(t.clone());
+        }
+    }
+
+    if translations_to_process.is_empty() {
+        println!("🎉  All requested translations are already in the database.");
+        return Ok(());
+    }
+
+    let mut first_translation_processed = false;
     if !db_path.exists() {
         println!(
             "ℹ️  '{}' not found. Creating it from: {}",
             db_path.display(),
-            &translations[0]
+            &translations_to_process[0]
         );
-        let first_translation = &translations[0];
+        let first_translation = &translations_to_process[0];
         let temp_path = download_translation(first_translation)?;
         fs::rename(&temp_path, &db_path)?;
         fs::remove_file(&temp_path).unwrap_or_default(); // Clean up temp file if rename fails across devices
-        translations_to_process.remove(0);
+        first_translation_processed = true;
     }
 
-    // Merge the rest of the translations
-    for translation in &translations_to_process {
+    let translations_to_merge: Vec<&String> = if first_translation_processed {
+        translations_to_process.iter().skip(1).collect()
+    } else {
+        translations_to_process.iter().collect()
+    };
+
+    for translation in translations_to_merge {
         if translation.to_lowercase() == "bible.db" {
             continue;
         } // Just in case
@@ -48,13 +75,10 @@ pub fn add_translations(translations: &Vec<String>) -> Result<(), Box<dyn Error>
     Ok(())
 }
 
-fn download_translation(translation: &str) -> Result<std::path::PathBuf, Box<dyn Error>> {
+fn download_translation(translation: &str) -> Result<std::path::PathBuf, AppError> {
     let url = format!("{}{}.db", BASE_URL, translation);
-    let response = reqwest::blocking::get(&url)?;
-
-    if !response.status().is_success() {
-        return Err(format!("Failed to download {}: HTTP {}", url, response.status()).into());
-    }
+    println!("Downloading {}...", url);
+    let response = reqwest::blocking::get(&url)?.error_for_status()?;
 
     let temp_path = std::env::temp_dir().join(format!("{}.db", translation));
     let mut dest = File::create(&temp_path)?;
@@ -63,11 +87,14 @@ fn download_translation(translation: &str) -> Result<std::path::PathBuf, Box<dyn
     Ok(temp_path)
 }
 
-fn merge_databases(main_db_path: &Path, other_db_path: &Path) -> Result<(), Box<dyn Error>> {
+fn merge_databases(main_db_path: &Path, other_db_path: &Path) -> Result<(), AppError> {
     let mut main_conn = Connection::open(main_db_path)?;
-    let other_db_path_str = other_db_path
-        .to_str()
-        .ok_or("Invalid temporary database path")?;
+    let other_db_path_str = other_db_path.to_str().ok_or_else(|| {
+        AppError::Io(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "Invalid temporary database path",
+        ))
+    })?;
 
     main_conn.execute("ATTACH DATABASE ?1 AS toMerge;", [other_db_path_str])?;
 
